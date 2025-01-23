@@ -4,7 +4,10 @@ import Breadcrumb from './Breadcrumb';
 import { GlobalContext } from '../contexts/GlobalContext';
 import axios from 'axios';
 import { RiEdit2Line } from 'react-icons/ri';
-import { GiConfirmed, GiCancel } from 'react-icons/gi';
+import { GiConfirmed, GiCancel, GiTrashCan } from 'react-icons/gi';
+
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const ProtocolInfor = () => {
 	const { setCurrentTitlePage, currentUser } = useContext(GlobalContext);
@@ -18,6 +21,7 @@ const ProtocolInfor = () => {
 	const [isLoading, setIsLoading] = useState(false);
 	const [receivedData, setReceivedData] = useState(null);
 	const [editingRow, setEditingRow] = useState(null);
+	const [customMatrix, setCustomMatrix] = useState({});
 
 	useEffect(() => {
 		setCurrentTitlePage('Phương pháp');
@@ -26,8 +30,8 @@ const ProtocolInfor = () => {
 	useEffect(() => {
 		const fetchProtocols = async () => {
 			try {
-				const response = await axios.get('http://127.0.0.1:1880/getProtocol');
-				const data = response.data.map(({ id, ...rest }) => rest); // Remove 'id' field
+				const response = await axios.get('https://black.irdop.org/db/get/protocol');
+				const data = response.data;
 				setProtocols(data);
 			} catch (error) {
 				console.error('Error fetching protocols:', error);
@@ -48,12 +52,32 @@ const ProtocolInfor = () => {
 
 	const handleSaveClick = async (index) => {
 		const updatedProtocol = protocols[index];
-		console.log(updatedProtocol);
+		const response = await axios.post('https://black.irdop.org/db/update/protocol', { protocol: updatedProtocol });
+		console.log(response);
 		setEditingRow(null);
+		if (response.status === 200) {
+			toast.success('Protocol updated successfully');
+		} else {
+			toast.error('Protocol update failed');
+		}
 	};
 
 	const handleCancelClick = () => {
 		setEditingRow(null);
+	};
+
+	const handleDeleteClick = async (index) => {
+		const protocol = protocols[index];
+		const confirmed = window.confirm(`Bạn chắc chắn muốn xóa phương pháp: ${protocol.protocol_name}?`);
+		if (confirmed) {
+			const response = await axios.post('https://black.irdop.org/db/delete/protocol', { id: protocol.id });
+			if (response.status === 200 && response.data) {
+				toast.success('Protocol deleted successfully');
+				setProtocols(protocols.filter((_, i) => i !== index));
+			} else {
+				toast.error('Protocol deletion failed');
+			}
+		}
 	};
 
 	const handleInputChange = (index, field, value) => {
@@ -72,14 +96,6 @@ const ProtocolInfor = () => {
 				? prevSelected.filter((name) => name !== protocol_name)
 				: [...prevSelected, protocol_name],
 		);
-	};
-
-	const handleDeleteClick = () => {
-		const confirmed = window.confirm(`Selected protocols: ${selectedProtocols.join(', ')}`);
-		if (confirmed) {
-			// Perform delete action here
-			alert(`Deleted protocols: ${selectedProtocols.join(', ')}`);
-		}
 	};
 
 	const handleRoleChange = (role) => {
@@ -146,7 +162,7 @@ const ProtocolInfor = () => {
 				);
 				const media = {
 					file_name: file.name,
-					file_mimeType: file.type,
+					file_mime: file.type,
 					file_buffer: fileBase64, // ArrayBuffer của file
 				};
 				lisMes.push({ media: media });
@@ -176,7 +192,7 @@ const ProtocolInfor = () => {
 				parameters: response.data.parameters.map((param) => ({
 					...param,
 					accreditation: '', // Giá trị mặc định
-					tat_expected: '', // Giá trị mặc định
+					tat_expected: '1 day', // Giá trị mặc định
 				})),
 			};
 
@@ -196,12 +212,38 @@ const ProtocolInfor = () => {
 		setIsLoading(false);
 	};
 
-	const handleConfirmReceivedData = () => {
+	const handleConfirmReceivedData = async () => {
+		const protocol = receivedData;
+		let parameters = receivedData.parameters;
+		delete protocol.parameters;
 		// Handle the confirmation of received data
-		console.log('Confirmed data:', receivedData);
+		console.log('Confirmed protocol data:', protocol);
+		const protocolResponse = await axios.post('https://black.irdop.org/db/insert/protocol', { protocol: protocol });
+
+		const updatedParameters = parameters.map((param) => ({
+			...param,
+			tat_expected: `${param.tat_expected} ${param.tat_expected > 1 ? 'days' : 'day'}`,
+			protocol_id: protocolResponse.data.id,
+			protocol_code: receivedData.protocol_code,
+			matrix: param.matrix === 'Khác' ? customMatrix[param.parameter_name] : param.matrix,
+		}));
+
+		parameters = updatedParameters;
+		console.log('Confirmed parameter data:', parameters);
+		const parameterResponse = await axios.post('https://black.irdop.org/db/insert/parameter', {
+			parameters: parameters,
+		});
+		console.log('Protocol:', protocolResponse);
+		console.log('Parameters:', parameterResponse);
 		setReceivedData(null);
 		setIsUploadBoxVisible(false);
 		setFiles([]);
+		setIsLoading(false);
+		if (protocolResponse.status === 200 && parameterResponse.status === 200) {
+			toast.success('Data confirmed successfully');
+		} else {
+			toast.error('Data confirmed failed');
+		}
 	};
 
 	const handleAccreditationChange = (index, value) => {
@@ -250,8 +292,28 @@ const ProtocolInfor = () => {
 		setReceivedData({ ...receivedData, parameters: [...receivedData.parameters, newParameter] });
 	};
 
+	const handleDeleteParameter = (index) => {
+		const updatedParameters = receivedData.parameters.filter((_, paramIndex) => paramIndex !== index);
+		setReceivedData({ ...receivedData, parameters: updatedParameters });
+	};
+
+	const handleCustomMatrixChange = (parameterName, value) => {
+		setCustomMatrix({ ...customMatrix, [parameterName]: value });
+	};
+
+	const handleProtocolSourceChange = (index, value) => {
+		const updatedProtocols = protocols.map((protocol, i) => {
+			if (i === index) {
+				return { ...protocol, protocol_source: value };
+			}
+			return protocol;
+		});
+		setProtocols(updatedProtocols);
+	};
+
 	return (
 		<div className="w-full h-full relative">
+			<ToastContainer />
 			<Breadcrumb
 				paths={[
 					{ name: 'Thư viện', link: '/library' },
@@ -341,6 +403,7 @@ const ProtocolInfor = () => {
 								{/* <th className="py-2 text-center w-24">File</th> */}
 								<th className="py-2 text-center w-40">Tác giả</th>
 								<th className="py-2 text-center w-40">Xuất bản</th>
+								<th className="py-2 text-center w-40">Nguồn</th>
 								{/* <th className="py-2 text-center min-w-28">Created At</th> */}
 								{/* <th className="py-2 text-center min-w-28">Modified At</th> */}
 								<th className="py-2 text-center min-w-24">Thực hiện</th>
@@ -375,10 +438,10 @@ const ProtocolInfor = () => {
 									</td>
 									<td className="p-1 text-start">
 										{editingRow === index ? (
-											<input
-												type="text"
+											<textarea
 												className="w-full border px-2 py-1 rounded bg-white"
 												value={protocol.protocol_description}
+												rows={1}
 												onChange={(e) => handleInputChange(index, 'protocol_description', e.target.value)}
 											/>
 										) : (
@@ -433,6 +496,20 @@ const ProtocolInfor = () => {
 											protocol.publisher
 										)}
 									</td>
+									<td className="p-1 text-start">
+										{editingRow === index ? (
+											<select
+												className="w-full border px-2 py-1 rounded bg-white"
+												value={protocol.protocol_source}
+												onChange={(e) => handleProtocolSourceChange(index, e.target.value)}
+											>
+												<option value="IRDOP">IRDOP</option>
+												<option value="IRDOP VS">IRDOP VS</option>
+											</select>
+										) : (
+											protocol.protocol_source
+										)}
+									</td>
 									{/* <td className="p-1 text-start">
 										<p>{formatDate(protocol.created_at)}</p>
 										<p className="text-primary text-sm font-medium">{protocol.created_by_uid}</p>
@@ -458,12 +535,20 @@ const ProtocolInfor = () => {
 												</button>
 											</>
 										) : (
-											<button
-												className="text-blue-500 px-2 py-1 focus:outline-none focus:border-none"
-												onClick={() => handleEditClick(index)}
-											>
-												<RiEdit2Line size={20} />
-											</button>
+											<>
+												<button
+													className="text-blue-500 px-2 py-1 focus:outline-none focus:border-none"
+													onClick={() => handleEditClick(index)}
+												>
+													<RiEdit2Line size={20} />
+												</button>
+												<button
+													className="text-red-500 px-2 py-1 focus:outline-none focus:border-none"
+													onClick={() => handleDeleteClick(index)}
+												>
+													<GiTrashCan size={20} />
+												</button>
+											</>
 										)}
 									</td>
 								</tr>
@@ -475,16 +560,32 @@ const ProtocolInfor = () => {
 
 			{isLoading && (
 				<div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-20">
-					<div className="text-white text-lg">Loading...</div>
-					<button className="bg-red-500 text-white font-bold py-2 px-4 rounded ml-4" onClick={handleCancelUpload}>
-						Hủy
-					</button>
+					<div className="flex flex-col items-center justify-center min-h-screen">
+						<div class="flex space-x-1 pl-5 text-3xl font-bold text-primary">
+							<span className="bounce">L</span>
+							<span className="bounce">o</span>
+							<span className="bounce">a</span>
+							<span className="bounce">d</span>
+							<span className="bounce">i</span>
+							<span className="bounce">n</span>
+							<span className="bounce">g</span>
+							<span className="bounce">.</span>
+							<span className="bounce">.</span>
+							<span className="bounce">.</span>
+						</div>
+						<button
+							className="bg-red-500 text-white font-bold py-2 px-4 mt-6 rounded ml-4"
+							onClick={handleCancelUpload}
+						>
+							Hủy
+						</button>
+					</div>
 				</div>
 			)}
 
 			{receivedData && (
-				<div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-20">
-					<div className="bg-white p-4 rounded-lg max-h-3/4 w-3/4 overflow-auto ">
+				<div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-20   ">
+					<div className="bg-white p-4 rounded-lg h-4/5 w-3/4 overflow-auto">
 						<h2 className="text-xl font-bold mb-4">Received Data</h2>
 						<div className="mb-4">
 							<h3 className="text-lg font-semibold">Protocol Information</h3>
@@ -504,6 +605,7 @@ const ProtocolInfor = () => {
 												className="w-full border px-2 py-1 rounded bg-white"
 												value={receivedData.protocol_name}
 												onChange={(e) => setReceivedData({ ...receivedData, protocol_name: e.target.value })}
+												disabled
 											/>
 										</td>
 									</tr>
@@ -515,17 +617,18 @@ const ProtocolInfor = () => {
 												className="w-full border px-2 py-1 rounded bg-white"
 												value={receivedData.protocol_code}
 												onChange={(e) => setReceivedData({ ...receivedData, protocol_code: e.target.value })}
+												disabled
 											/>
 										</td>
 									</tr>
 									<tr className="border-t">
 										<td className="p-1 text-start font-semibold">Mô tả:</td>
 										<td className="p-1 text-start">
-											<input
-												type="text"
+											<textarea
 												className="w-full border px-2 py-1 rounded bg-white"
 												value={receivedData.protocol_description}
 												onChange={(e) => setReceivedData({ ...receivedData, protocol_description: e.target.value })}
+												disabled
 											/>
 										</td>
 									</tr>
@@ -536,6 +639,7 @@ const ProtocolInfor = () => {
 												className="w-full border px-2 py-1 rounded bg-white"
 												defaultValue={receivedData.protocol_content}
 												onChange={(e) => setReceivedData({ ...receivedData, protocol_content: e.target.value })}
+												disabled
 											/>
 										</td>
 									</tr>
@@ -547,6 +651,7 @@ const ProtocolInfor = () => {
 												className="w-full border px-2 py-1 rounded bg-white"
 												value={receivedData.author_name}
 												onChange={(e) => setReceivedData({ ...receivedData, author_name: e.target.value })}
+												disabled
 											/>
 										</td>
 									</tr>
@@ -558,6 +663,7 @@ const ProtocolInfor = () => {
 												className="w-full border px-2 py-1 rounded bg-white"
 												value={receivedData.author_name}
 												onChange={(e) => setReceivedData({ ...receivedData, author_name: e.target.value })}
+												disabled
 											/>
 										</td>
 									</tr>
@@ -568,12 +674,13 @@ const ProtocolInfor = () => {
 						<table className="min-w-full bg-white">
 							<thead className="border-b-2">
 								<tr>
-									<th className="py-2 text-center">Phép thử / chỉ tiêu</th>
-									<th className="py-2 text-center">Nền mẫu</th>
-									<th className="py-2 text-center">Thiết bị</th>
-									<th className="py-2 text-center">Đơn vị</th>
-									<th className="py-2 text-center">Thời gian thực hiện</th>
-									<th className="py-2 text-center">Chứng nhận</th>
+									<th className="py-2 text-center w-1/5">Phép thử / chỉ tiêu</th>
+									<th className="py-2 text-center w-1/5">Nền mẫu</th>
+									<th className="py-2 text-center w-1/4">Thiết bị</th>
+									<th className="py-2 text-center w-1/12">Đơn vị</th>
+									<th className="py-2 text-center w-1/12">Dự kiến</th>
+									<th className="py-2 text-center w-36">Chứng nhận</th>
+									<th className="py-2 text-center w-10">Xóa</th>
 								</tr>
 							</thead>
 							<tbody>
@@ -588,16 +695,36 @@ const ProtocolInfor = () => {
 											/>
 										</td>
 										<td className="p-1 text-start">
-											<input
-												type="text"
+											<select
 												className="w-full border px-2 py-1 rounded bg-white"
 												value={param.matrix}
 												onChange={(e) => handleParameterChange(index, 'matrix', e.target.value)}
-											/>
+											>
+												<option value="">{param.matrix}</option>
+												<option value="Nước uống">Nước uống</option>
+												<option value="Nước sinh hoạt">Nước sinh hoạt</option>
+												<option value="Nước thải">Nước thải</option>
+												<option value="Nước mặt">Nước mặt</option>
+												<option value="Nước ngầm">Nước ngầm</option>
+												<option value="Khí xung quanh">Khí xung quanh</option>
+												<option value="Khí thải">Khí thải</option>
+												<option value="Đất">Đất</option>
+												<option value="Chất thải">Chất thải</option>
+												<option value="Phế liệu">Phế liệu</option>
+												<option value="Khác">Khác</option>
+											</select>
+											{param.matrix === 'Khác' && (
+												<input
+													type="text"
+													className="w-full border px-2 py-1 rounded bg-white mt-2"
+													placeholder="Nhập nền mẫu khác"
+													value={customMatrix[param.parameter_name] || ''}
+													onChange={(e) => handleCustomMatrixChange(param.parameter_name, e.target.value)}
+												/>
+											)}
 										</td>
 										<td className="p-1 text-start">
-											<input
-												type="text"
+											<textarea
 												className="w-full border px-2 py-1 rounded bg-white"
 												value={param.equipments}
 												onChange={(e) => handleParameterChange(index, 'equipments', e.target.value)}
@@ -611,15 +738,16 @@ const ProtocolInfor = () => {
 												onChange={(e) => handleParameterChange(index, 'default_unit', e.target.value)}
 											/>
 										</td>
-										<td className="p-1 text-start">
+										<td className="p-1 text-center">
 											<input
-												type="text"
-												className="w-full border px-2 py-1 rounded bg-white"
+												type="number"
+												className="w-14 mr-1 border px-2 py-1 rounded bg-white"
 												value={param.tat_expected}
 												onChange={(e) => handleParameterChange(index, 'tat_expected', e.target.value)}
 											/>
+											ngày
 										</td>
-										<td className="p-1 text-center flex justify-around">
+										<td className="p-1 text-center">
 											<label>
 												<input
 													type="checkbox"
@@ -628,7 +756,7 @@ const ProtocolInfor = () => {
 												/>
 												VILAS 997
 											</label>
-											<label>
+											<label className="ml-2">
 												<input
 													type="checkbox"
 													checked={param.accreditation?.includes('107')}
@@ -636,6 +764,14 @@ const ProtocolInfor = () => {
 												/>
 												107
 											</label>
+										</td>
+										<td className="p-1 text-center">
+											<button
+												className="text-red-500 px-2 py-1 focus:outline-none focus:border-none"
+												onClick={() => handleDeleteParameter(index)}
+											>
+												X
+											</button>
 										</td>
 									</tr>
 								))}
