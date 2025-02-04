@@ -1,21 +1,26 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { GlobalContext } from '../contexts/GlobalContext';
 
-const FilterBar = ({ source, currentList, setCurrentList }) => {
-	const { setCurrentSort, setCurrentFilter, setSearchWords, currentKey } = useContext(GlobalContext);
+const FilterBar = ({ source, setCurrentList, typeSearch }) => {
+	const { setCurrentSort, setCurrentFilter, setSearchWords, currentKey, searchProtocol, searchAnalyte } = useContext(GlobalContext);
 	const [searchTerm, setSearchTerm] = useState('');
-	const [sorts, setSorts] = useState([
-		// { key: currentKey[0]?.key || '', order: 'asc' }
-	]);
-	const [filters, setFilters] = useState([
-		// { key: currentKey[0]?.key || '', condition: 'include', value: '', logic: 'AND' },
-	]);
+	const [currentList, setCurrentListState] = useState(source);
+	const [sorts, setSorts] = useState([]);
+	const [filters, setFilters] = useState([]);
 	const [showSortOptions, setShowSortOptions] = useState(false);
 	const [showFilterOptions, setShowFilterOptions] = useState(false);
 
+	useEffect(() => {
+		setCurrentListState(source);
+	}, [source]);
+
 	const handleSearchChange = (e) => {
 		setSearchTerm(e.target.value);
-		setSearchWords(e.target.value);
+		if (typeSearch === 'protocol') {
+			setCurrentList(searchProtocol(e.target.value, currentList));
+		} else if (typeSearch === 'parameter') {
+			setCurrentList(searchAnalyte(e.target.value,currentList));
+		}
 	};
 
 	const handleSortChange = () => {
@@ -82,7 +87,7 @@ const FilterBar = ({ source, currentList, setCurrentList }) => {
 
 	const handleFilterAccept = () => {
 		const validFilters = filters.filter((filter) => filter.value.trim() !== '');
-		let filteredList = [...source];
+		let filteredList = [...currentList];
 
 		// Apply filters
 		validFilters.forEach((filter, index) => {
@@ -108,7 +113,7 @@ const FilterBar = ({ source, currentList, setCurrentList }) => {
 					}
 				});
 			} else if (filter.logic === 'OR') {
-				const additionalList = source.filter((item) => {
+				const additionalList = currentList.filter((item) => {
 					switch (filter.condition) {
 						case 'include':
 							return item[filter.key].includes(filter.value);

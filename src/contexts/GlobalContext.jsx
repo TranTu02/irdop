@@ -38,6 +38,26 @@ export const GlobalProvider = ({ children }) => {
 		);
 	};
 
+	const searchProtocol = (query,listProtocols) => {
+		const lowerCaseQuery = query.toLowerCase();
+		return listProtocols.filter(
+			(protocol) =>
+				protocol.protocol_name.toLowerCase().includes(lowerCaseQuery) ||
+				protocol.protocol_code.toLowerCase().includes(lowerCaseQuery) 
+		);
+	};
+
+	const searchAnalyte = (query, listAnalytes) => {
+		const lowerCaseQuery = query.toLowerCase();
+		return listAnalytes.filter(
+			(analyte) =>
+				analyte.parameter_uid.toLowerCase().includes(lowerCaseQuery) ||
+				analyte.parameter_name.toLowerCase().includes(lowerCaseQuery) ||
+				analyte.protocol_code.toLowerCase().includes(lowerCaseQuery) ||
+				analyte.matrix.toLowerCase().includes(lowerCaseQuery)
+		);
+	};
+
 	useEffect(() => {
 		if (currentReceipt && currentReceipt.samples) {
 			let analytes = currentReceipt.samples.flatMap((sample) =>
@@ -156,6 +176,8 @@ export const GlobalProvider = ({ children }) => {
 				setCurrentReceiptState,
 				currentUser,
 				setCurrentUser,
+				searchProtocol,
+				searchAnalyte,
 			}}
 		>
 			{children}

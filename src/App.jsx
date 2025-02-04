@@ -9,6 +9,7 @@ import { GlobalContext } from './contexts/GlobalContext';
 import Library from './components/Library';
 import ProtocolInfor from './components/ProtocolInfor';
 import AnalyteInfor from './components/AnalyteInfor';
+import Login from './components/Login';
 
 const App = () => {
 	const { currentBulkReceipt } = useContext(GlobalContext);
@@ -25,6 +26,7 @@ const App = () => {
 						<Route path="/" element={<Dashboard />} />
 						<Route path="/dashboard/:receipt_uid" element={<ReceiptInfor />} />
 						<Route path="/dashboard/:receipt_uid/:sample_uid" element={<SampleInfor />} />
+						<Route path="login" element={<Login />} />
 					</Routes>
 				</div>
 			</div>
