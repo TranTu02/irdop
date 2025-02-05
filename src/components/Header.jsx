@@ -15,9 +15,9 @@ const Header = () => {
 					<p className="hover:text-primary cursor-pointer md:text-md ml-4  mt-0.5 text-md text-teritary font-medium">
 						Bán hàng
 					</p>
-					<p className="hover:text-primary cursor-pointer md:text-md ml-4  mt-0.5 text-md text-teritary font-medium">
+					<Link to="/library" className="hover:text-primary cursor-pointer md:text-md ml-4  mt-0.5 text-md text-teritary font-medium">
 						Thư viện
-					</p>
+					</Link>
 					<p className="  text-slate-600 cursor-default md:text-lg ml-4 text-md font-medium">{'Account'}</p>
 				</div>
 			</div>

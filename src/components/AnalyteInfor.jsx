@@ -4,7 +4,18 @@ import Breadcrumb from './Breadcrumb';
 import { GlobalContext } from '../contexts/GlobalContext';
 import axios from 'axios';
 import { RiEdit2Line } from 'react-icons/ri';
-import { GiConfirmed, GiCancel } from 'react-icons/gi';
+import { GiConfirmed, GiCancel, GiTrashCan } from 'react-icons/gi';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
+const identities = [
+    { identity_uid: "IDx8f3c2", identity_name: "Phạm Văn Quang" },
+    { identity_uid: "IDx5d1e9", identity_name: "Lê Xuân An" },
+    { identity_uid: "IDx7a6f4", identity_name: "Đinh Thị Hồng Vân" },
+    { identity_uid: "IDx2b9d8", identity_name: "Lê Thị Quỳnh" },
+    { identity_uid: "IDx6e0a1", identity_name: "Nguyễn Phan Hồng Anh" },
+    { identity_uid: "IDx8hna7", identity_name: "Chu Thị Thủy" }
+];
 
 const AnalyteInfor = () => {
 	const { setCurrentTitlePage, currentUser } = useContext(GlobalContext);
@@ -19,27 +30,61 @@ const AnalyteInfor = () => {
 		tat_expected: '1 day',
 		default_unit: '',
 		accreditation: '',
-		technicant_uid: '',
+		technicant_uid: identities[0].identity_uid,
+		protocol_code: '',
+		parameter_uid: '',
+		protocol_source: 'IRDOP',
 	});
+	const [protocols, setProtocols] = useState([]);
+	const [protocolSearch, setProtocolSearch] = useState('');
+	const [isProtocolDropdownVisible, setIsProtocolDropdownVisible] = useState(false);
+	const [customMatrix, setCustomMatrix] = useState({});
+	const [originalAnalytes, setOriginalAnalytes] = useState([]);
+	const [originalCustomMatrix, setOriginalCustomMatrix] = useState({});
+	const [currentPage, setCurrentPage] = useState(1);
+	const [protocolPage, setProtocolPage] = useState(1);
+	const [listProtocol, setListProtocol] = useState([]);
+	const protocolsPerPage = 5;
+	const analytesPerPage = 20;
+
 
 	useEffect(() => {
 		setCurrentTitlePage('Chỉ tiêu');
 	}, [setCurrentTitlePage]);
-
+	
+	const fetchAnalytes = async () => {
+		try {
+			const response = await axios.get('https://black.irdop.org/db/get/analyte');
+			const data = response.data.map((analyte) => ({
+				...analyte,
+				tat_expected: analyte.tat_expected ? `${analyte.tat_expected.days} ${analyte.tat_expected.days > 1 ? 'days' : 'day'}` : '',
+				technicant_uid: identities.find((identity) => identity.identity_uid === analyte.technicant_uid)?.identity_name,
+			}));
+			setAnalytes(data);
+			setOriginalAnalytes(data);
+		} catch (error) {
+			console.error('Error fetching analytes:', error);
+		}
+	};
+	
 	useEffect(() => {
-		const fetchAnalytes = async () => {
-			try {
-				const response = await axios.get('http://127.0.0.1:1880/getAnalyte');
-				const data = response.data.map(({ id, ...rest }) => rest); // Remove 'id' field
-				setAnalytes(data);
-				setOriginalAnalytes(data);
-			} catch (error) {
-				console.error('Error fetching analytes:', error);
-			}
-		};
-
 		fetchAnalytes();
 	}, []);
+
+	const fetchProtocols = async (searchTerm) => {
+		try {
+			if(listProtocol.length === 0){
+				const response = await axios.get('https://black.irdop.org/db/get/protocol');
+				setListProtocol(response.data);
+			}
+			const filteredProtocols = listProtocol.filter((protocol) =>
+				protocol.protocol_code?.includes(searchTerm)
+			);
+			setProtocols(filteredProtocols);
+		} catch (error) {
+			console.error('Error fetching protocols:', error);
+		}
+	};
 
 	const formatDate = (dateString) => {
 		const options = { day: '2-digit', month: '2-digit', year: 'numeric' };
@@ -53,15 +98,22 @@ const AnalyteInfor = () => {
 
 	const handleSaveClick = async (index) => {
 		const updatedAnalyte = analytes[index];
-		updatedAnalyte.tat_expected = { days: parseInt(updatedAnalyte.tat_expected) };
-		console.log(updatedAnalyte);
+		const days = parseInt(updatedAnalyte?.tat_expected.split(' ')[0]);
+		if(isNaN(days)){
+			delete updatedAnalyte.tat_expected;
+		}else{
+			updatedAnalyte.tat_expected = `${days} ${days > 1 ? 'days' : 'day'}`;
+		}
+		updatedAnalyte.matrix = updatedAnalyte.matrix === 'Khác' ? customMatrix[index] : updatedAnalyte.matrix;
+
 		try {
-			// await axios.post('https://12345/abc/def', updatedAnalyte);
+			const response = await axios.post('https://black.irdop.org/db/edit/analyte', { parameter: updatedAnalyte });
 			setEditingRow(null);
 			if (response.status === 200) {
 				toast.success('Analyte updated successfully');
 				setOriginalAnalytes(analytes);
 				setOriginalCustomMatrix(customMatrix);
+				await fetchAnalytes(); // Refresh data
 			} else {
 				toast.error('Analyte update failed');
 			}
@@ -84,7 +136,6 @@ const AnalyteInfor = () => {
 			}
 			return analyte;
 		});
-		console.log(updatedAnalytes);
 		setAnalytes(updatedAnalytes);
 	};
 
@@ -135,18 +186,34 @@ const AnalyteInfor = () => {
 	};
 
 	const handleSaveNewAnalyte = async () => {
+		const days = parseInt(newAnalyte?.tat_expected.split(' ')[0]);
+		if(isNaN(days)){
+			delete newAnalyte.tat_expected;
+		}else{
+			newAnalyte.tat_expected = `${days} ${days > 1 ? 'days' : 'day'}`;
+		}
+		newAnalyte.matrix = newAnalyte.matrix === 'Khác' ? customMatrix['new'] : newAnalyte.matrix;
 		try {
-			// await axios.post('https://12345/abc/def', newAnalyte);
-			setAnalytes([...analytes, newAnalyte]);
-			setIsAddingNew(false);
-			setNewAnalyte({
-				parameter_name: '',
-				matrix: 'Đất',
-				tat_expected: { days: 1 },
-				default_unit: '',
-				accreditation: '',
-				technicant_uid: '',
-			});
+			const response = await axios.post('https://black.irdop.org/db/insert/parameter', { parameters: newAnalyte });
+			if (response.status === 200) {
+				toast.success('New analyte added successfully');
+				setAnalytes([...analytes, newAnalyte]);
+				setIsAddingNew(false);
+				setNewAnalyte({
+					parameter_name: '',
+					matrix: 'Đất',
+					tat_expected: '1 day',
+					default_unit: '',
+					accreditation: '',
+					technicant_uid: identities[0].identity_uid,
+					protocol_code: '',
+					parameter_uid: '',
+					protocol_source: 'IRDOP',
+					});
+				await fetchAnalytes(); // Refresh data
+			} else {
+				toast.error('Failed to add new analyte');
+			}
 		} catch (error) {
 			console.error('Error adding new analyte:', error);
 			toast.error('Failed to add new analyte');
@@ -161,7 +228,10 @@ const AnalyteInfor = () => {
 			tat_expected: '1 day',
 			default_unit: '',
 			accreditation: '',
-			technicant_uid: '',
+			technicant_uid: identities[0].identity_uid,
+			protocol_code: '',
+			parameter_uid: '',
+			protocol_source: 'IRDOP',
 		});
 	};
 
@@ -199,6 +269,114 @@ const AnalyteInfor = () => {
 				accreditation: [...accreditations, value].join(', '),
 			});
 		}
+	};
+
+	const handleProtocolSearchChange = (index, value) => {
+		setProtocolSearch(value);
+		handleInputChange(index, 'protocol_code', value);
+		if (value.length >= 5) {
+			fetchProtocols(value);
+			setIsProtocolDropdownVisible(true);
+			setProtocolPage(1);
+		} else {
+			setIsProtocolDropdownVisible(false);
+		}
+	};
+
+	const handleProtocolSelect = (index, protocol) => {
+		const updatedAnalytes = analytes.map((analyte, i) => {
+			if (i === index) {
+				return { ...analyte, protocol_id: protocol.id, protocol_code: protocol.protocol_code };
+			}
+			return analyte;
+		});
+
+		setAnalytes(updatedAnalytes);
+		setIsProtocolDropdownVisible(false);
+	};
+
+	const handleNewProtocolSelect = (protocol) => {
+		setNewAnalyte({ ...newAnalyte, protocol_code: protocol.protocol_code, protocol_id: protocol.id });
+		setIsProtocolDropdownVisible(false);
+	};
+
+	const handleCustomMatrixChange = (index, value) => {
+		setCustomMatrix({ ...customMatrix, [index]: value });
+		// handleInputChange(index, 'matrix', value);
+	};
+
+	const handleProtocolSourceChange = (index, value) => {
+		const updatedAnalytes = analytes.map((analyte, i) => {
+			if (i === index) {
+				return { ...analyte, protocol_source: value };
+			}
+			return analyte;
+		});
+		setAnalytes(updatedAnalytes);
+	};
+
+	const handleNewProtocolSourceChange = (value) => {
+		setNewAnalyte({ ...newAnalyte, protocol_source: value });
+	};
+
+	const handlePageChange = (pageNumber) => {
+		setCurrentPage(pageNumber);
+	};
+
+	const handleProtocolPageChange = (pageNumber) => {
+		setProtocolPage(pageNumber);
+	};
+
+	const totalPages = Math.ceil(analytes.length / analytesPerPage);
+	const totalProtocolPages = Math.ceil(protocols.length / protocolsPerPage);
+	const paginatedAnalytes = analytes.slice((currentPage - 1) * analytesPerPage, currentPage * analytesPerPage);
+	const paginatedProtocols = protocols.slice((protocolPage - 1) * protocolsPerPage, protocolPage * protocolsPerPage);
+
+	const renderPageNumbers = (totalPages, currentPage, handlePageChange) => {
+		const pageNumbers = [];
+		const maxPagesToShow = 5;
+		let startPage = Math.max(1, currentPage - 2);
+		let endPage = Math.min(totalPages, currentPage + 2);
+
+		if (currentPage <= 3) {
+			endPage = Math.min(5, totalPages);
+		} else if (currentPage + 2 >= totalPages) {
+			startPage = Math.max(1, totalPages - 4);
+		}
+
+		for (let i = startPage; i <= endPage; i++) {
+			pageNumbers.push(
+				<button
+					key={i}
+					className={`px-2 py-1 border rounded ${i === currentPage ? 'bg-blue-500 text-white' : ''}`}
+					onClick={() => handlePageChange(i)}
+				>
+					{i}
+				</button>
+			);
+		}
+
+		return (
+			<div className="flex space-x-1">
+				{currentPage > 3 && (
+					<>
+						<button className="px-2 py-1 border rounded" onClick={() => handlePageChange(1)}>
+							First
+						</button>
+						<span>...</span>
+					</>
+				)}
+				{pageNumbers}
+				{currentPage + 2 < totalPages && (
+					<>
+						<span>...</span>
+						<button className="px-2 py-1 border rounded" onClick={() => handlePageChange(totalPages)}>
+							Last
+						</button>
+					</>
+				)}
+			</div>
+		);
 	};
 
 	return (
@@ -253,6 +431,7 @@ const AnalyteInfor = () => {
 					<table className="min-w-screen-xl bg-white ">
 						<thead className="border-b-2">
 							<tr>
+								<th className="py-2 text-center min-w-32">Mã chỉ tiêu</th>
 								<th className="py-2 text-center  w-1/3 ">Tên chỉ tiêu</th>
 								<th className="py-2 text-center  w-1/4 ">Nền mẫu</th>
 								<th className="py-2 text-center min-w-40">Mã phương pháp</th>
@@ -267,14 +446,6 @@ const AnalyteInfor = () => {
 						<tbody>
 							{isAddingNew && (
 								<tr className="border-t bg-blue-50">
-									<td className="p-1 text-start">
-										<input
-											type="text"
-											className="w-full border px-2 py-1 rounded bg-white"
-											value={newAnalyte.parameter_uid}
-											disabled
-										/>
-									</td>
 									<td className="p-1 text-start">
 										<input
 											type="text"
@@ -307,12 +478,68 @@ const AnalyteInfor = () => {
 											<option value="Hóa chất">Hóa chất</option>
 											<option value="Khác">Khác</option>
 										</select>
+										{newAnalyte.matrix === 'Khác' && (
+											<textarea
+												className="w-full border px-2 py-1 rounded bg-white mt-2"
+												placeholder="Nhập nền mẫu khác"
+												value={customMatrix['new'] || ''}
+												onChange={(e) => {
+													setCustomMatrix({ ...customMatrix, new: e.target.value });
+												}}
+											/>
+										)}
+									</td>
+									<td className="p-1 text-start relative">
+										<input
+											type="text"
+											className="w-full border px-2 py-1 rounded bg-white"
+											value={newAnalyte.protocol_code}
+											onChange={(e) => handleNewAnalyteChange('protocol_code', e.target.value)}
+										/>
+										{isProtocolDropdownVisible && (
+											<div className="absolute w-80 bg-white border rounded shadow-lg z-10">
+												{paginatedProtocols.map((protocol, index) => (
+													<div
+														key={index}
+														className="p-1 text-md cursor-pointer hover:bg-gray-200 text-start border-b border-slate-100"
+														onClick={() => handleNewProtocolSelect(protocol)}
+													>
+														<p>{protocol.protocol_name}</p>
+														<p className="text-sm text-gray-500">{protocol.protocol_code}</p>
+													</div>
+												))}
+												{protocols.filter((protocol) => protocol.protocol_code?.includes(protocolSearch)).length > protocolsPerPage && (
+													<div className="flex justify-between p-2">
+														<button
+															className="px-2 py-1 border rounded"
+															onClick={() => handleProtocolPageChange(protocolPage - 1)}
+															disabled={protocolPage === 1}
+														>
+															Previous
+														</button>
+														<button
+															className="px-2 py-1 border rounded"
+															onClick={() => window.location.href = '/library/protocol'}
+														>
+															Thêm mới
+														</button>
+														<button
+															className="px-2 py-1 border rounded"
+															onClick={() => handleProtocolPageChange(protocolPage + 1)}
+															disabled={protocolPage * protocolsPerPage >= protocols.length}
+														>
+															Next
+														</button>
+													</div>
+												)}
+											</div>
+										)}
 									</td>
 									<td className="p-1 text-start">
 										<input
 											type="number"
 											className="w-14 border px-2 py-1 rounded bg-white"
-											value={newAnalyte.tat_expected.days}
+											value={`${newAnalyte.tat_expected ? newAnalyte.tat_expected.split(' ')[0] : ''}`}
 											onChange={(e) => handleNewAnalyteChange('tat_expected', e.target.value)}
 										/>
 										<span className="ml-2">Ngày</span>
@@ -368,16 +595,6 @@ const AnalyteInfor = () => {
 											<option value="IRDOP VS">IRDOP VS</option>
 										</select>
 									</td>
-									<td className="p-1 text-start">
-										<select
-											className="w-full border px-2 py-1 rounded bg-white"
-											value={newAnalyte.protocol_source}
-											onChange={(e) => handleNewProtocolSourceChange(e.target.value)}
-										>
-											<option value="IRDOP">IRDOP</option>
-											<option value="IRDOP VS">IRDOP VS</option>
-										</select>
-									</td>
 									<td className="p-1 text-center ">
 										<button
 											className="text-blue-500 px-2 py-1 mr-1 focus:outline-none focus:border-none"
@@ -411,19 +628,6 @@ const AnalyteInfor = () => {
 									</td>
 									<td className="p-1 text-start">
 										{editingRow === index ? (
-											<input
-												type="text"
-												className="w-full border px-2 py-1 rounded bg-white"
-												value={analyte.parameter_uid}
-												onChange={(e) => handleInputChange(index, 'parameter_uid', e.target.value)}
-												disabled
-											/>
-										) : (
-											<p className="px-2">{analyte.parameter_uid}</p>
-										)}
-									</td>
-									<td className="p-1 text-start">
-										{editingRow === index ? (
 											<textarea
 												className="w-full border px-2 py-1 rounded bg-white"
 												value={analyte.parameter_name}
@@ -435,23 +639,90 @@ const AnalyteInfor = () => {
 									</td>
 									<td className="p-1 text-start">
 										{editingRow === index ? (
-											<select
-												className="w-full border px-2 py-1 rounded bg-white"
-												value={analyte.matrix}
-												onChange={(e) => handleInputChange(index, 'matrix', e.target.value)}
-											>
-												<option value="Đất">Đất</option>
-												<option value="Nước">Nước</option>
-												<option value="Thực phẩm bảo vệ sức khỏe">Thực phẩm bảo vệ sức khỏe</option>
-												<option value="Thực phẩm chức năng">Thực phẩm chức năng</option>
-												<option value="Thuốc">Thuốc</option>
-												<option value="Thực phẩm chín">Thực phẩm chín</option>
-												<option value="Thực phẩm sống">Thực phẩm sống</option>
-												<option value="Vật liệu">Vật liệu</option>
-												<option value="Hóa chất">Hóa chất</option>
-											</select>
+											<input
+												type="text"
+												className="w-full border px-2 py-1 rounded bg-white mt-2"
+												placeholder="Nhập nền mẫu"
+												value={analyte.matrix || ''}
+												onChange={(e) => handleCustomMatrixChange(index, e.target.value)}
+											/>
 										) : (
 											<p className="px-2">{analyte.matrix}</p>
+										)}
+										{editingRow === index && analyte.matrix === 'Khác' && (
+											<input
+												type="text"
+												className="w-full border px-2 py-1 rounded bg-white mt-2"
+												placeholder="Nhập nền mẫu khác"
+												value={customMatrix[index] || ''}
+												onChange={(e) => handleCustomMatrixChange(index, e.target.value)}
+											/>
+										)}
+									</td>
+									<td className="p-1 text-start">
+										{editingRow === index ? (
+											<div className="relative">
+												<input
+													type="text"
+													className="w-full border px-2 py-1 rounded bg-white"
+													value={analyte.protocol_code}
+													onChange={(e) => handleProtocolSearchChange(index, e.target.value)}
+												/>
+												{isProtocolDropdownVisible && (
+													<div className="absolute top-full mt-1 w-80 bg-white border rounded shadow-lg z-10">
+														{paginatedProtocols.map((protocol, index) => (
+															<div
+																key={index}
+																className="p-1 text-md cursor-pointer hover:bg-gray-200 text-start border-b border-slate-100"
+																onClick={() => handleProtocolSelect(index, protocol)}
+															>
+																<p>{protocol.protocol_name}</p>
+																<p className="text-sm text-gray-500">{protocol.protocol_code}</p>
+															</div>
+														))}
+														{protocols.filter((protocol) => protocol.protocol_code?.includes(protocolSearch)).length > protocolsPerPage && (
+															<div className="flex justify-between p-2">
+																<button
+																	className="px-2 py-1 border rounded"
+																	onClick={() => handleProtocolPageChange(protocolPage - 1)}
+																	disabled={protocolPage === 1}
+																>
+																	Previous
+																</button>
+																
+																<button
+																	className="px-2 py-1 border rounded"
+																	onClick={() => window.open('/library/protocol', '_blank')}
+																>
+																	Thêm mới
+																</button>
+																<button
+																	className="px-2 py-1 border rounded"
+																	onClick={() => handleProtocolPageChange(protocolPage + 1)}
+																	disabled={protocolPage * protocolsPerPage >= protocols.length}
+																>
+																	Next
+																</button>
+															</div>
+														)}
+																												
+														{protocols.filter((protocol) => protocol.protocol_code?.includes(protocolSearch)).length < protocolsPerPage && (
+															<div className="flex justify-between p-2">
+															
+																<button
+																	className="px-2 py-1 border rounded w-full"
+																	onClick={() => window.open('/library/protocol', '_blank')}
+																>
+																	Thêm mới
+																</button>
+
+															</div>
+														)}
+													</div>
+												)}
+											</div>
+										) : (
+											<p className="px-2">{analyte.protocol_code}</p>
 										)}
 									</td>
 									<td className="p-1 text-start ">
@@ -460,7 +731,7 @@ const AnalyteInfor = () => {
 												<input
 													type="number"
 													className="w-14 border px-2 py-1 rounded bg-white"
-													value={analyte.tat_expected.days}
+													defaultValue={analyte?.tat_expected.split(' ')[0] || 0}
 													onChange={(e) => handleInputChange(index, 'tat_expected', e.target.value)}
 												/>
 												<span className="ml-2">Ngày</span>
@@ -508,8 +779,38 @@ const AnalyteInfor = () => {
 										)}
 									</td>
 									<td className="p-1 text-start">
-										<p>{formatDate(analyte.modified_at)}</p>
-										<p className="text-primary text-sm font-medium">{analyte.modified_by_uid}</p>
+										{editingRow === index ? (
+											<select
+												className="w-full border px-2 py-1 rounded bg-white"
+												value={identities.find((identity) => identity.identity_name === analyte.technicant_uid)?.identity_uid}
+												onChange={(e) => handleInputChange(index, 'technicant_uid', e.target.value)}
+											>
+												<option key='default' value={''}>
+													Chọn KTV
+												</option>
+												{identities.map((identity) => (
+													<option key={identity.identity_uid} value={identity.identity_uid}>
+														{identity.identity_name}
+													</option>
+												))}
+											</select>
+										) : (
+											<p className="px-2">{analyte.technicant_uid}</p>
+										)}
+									</td>
+									<td className="p-1 text-start">
+										{editingRow === index ? (
+											<select
+												className="w-full border px-2 py-1 rounded bg-white"
+												value={analyte.protocol_source || 'IRDOP'}
+												onChange={(e) => handleProtocolSourceChange(index, e.target.value)}
+											>
+												<option value="IRDOP">IRDOP</option>
+												<option value="IRDOP VS">IRDOP VS</option>
+											</select>
+										) : (
+											<p className="px-2">{analyte.protocol_source || 'IRDOP'}</p>
+										)}
 									</td>
 									<td className="p-1 text-center ">
 										{editingRow === index ? (

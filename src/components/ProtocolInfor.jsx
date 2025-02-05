@@ -20,6 +20,73 @@ const ProtocolInfor = () => {
 	const [isLoading, setIsLoading] = useState(false);
 	const [receivedData, setReceivedData] = useState(null);
 	const [editingRow, setEditingRow] = useState(null);
+	const [customMatrix, setCustomMatrix] = useState({});
+	const [currentPage, setCurrentPage] = useState(1);
+	const [instance, setInstance] = useState(null);
+	const [isAddingNew, setIsAddingNew] = useState(false);
+	const [newProtocol, setNewProtocol] = useState({
+		protocol_name: '',
+		protocol_code: '',
+		protocol_description: '',
+		protocol_content: '',
+		author_name: '',
+		publisher: '',
+	});
+	const protocolsPerPage = 20;
+
+	const handlePageChange = (pageNumber) => {
+		setCurrentPage(pageNumber);
+	};
+
+	const totalPages = Math.ceil(protocols.length / protocolsPerPage);
+	const paginatedProtocols = protocols.slice((currentPage - 1) * protocolsPerPage, currentPage * protocolsPerPage);
+
+	const renderPageNumbers = () => {
+		const pageNumbers = [];
+		const maxPagesToShow = 5;
+		let startPage = Math.max(1, currentPage - 2);
+		let endPage = Math.min(totalPages, currentPage + 2);
+
+		if (currentPage <= 3) {
+			endPage = Math.min(5, totalPages);
+		} else if (currentPage + 2 >= totalPages) {
+			startPage = Math.max(1, totalPages - 4);
+		}
+
+		for (let i = startPage; i <= endPage; i++) {
+			pageNumbers.push(
+				<button
+					key={i}
+					className={`px-2 py-1 border rounded ${i === currentPage ? 'bg-blue-500 text-white' : ''}`}
+					onClick={() => handlePageChange(i)}
+				>
+					{i}
+				</button>
+			);
+		}
+
+		return (
+			<div className="flex space-x-1">
+				{currentPage > 3 && (
+					<>
+						<button className="px-2 py-1 border rounded" onClick={() => handlePageChange(1)}>
+							First
+						</button>
+						<span>...</span>
+					</>
+				)}
+				{pageNumbers}
+				{currentPage + 2 < totalPages && (
+					<>
+						<span>...</span>
+						<button className="px-2 py-1 border rounded" onClick={() => handlePageChange(totalPages)}>
+							Last
+						</button>
+					</>
+				)}
+			</div>
+		);
+	};
 
 	useEffect(() => {
 		setCurrentTitlePage('Phương pháp');
@@ -235,7 +302,7 @@ const ProtocolInfor = () => {
 				parameters: response.data.protocolRecord.parameters.map((param) => ({
 					...param,
 					accreditation: '', // Giá trị mặc định
-					tat_expected: '', // Giá trị mặc định
+					tat_expected: null, // Giá trị mặc định     
 				})),
 			};
 
@@ -261,10 +328,40 @@ const ProtocolInfor = () => {
 		let parameters = receivedData.parameters;
 		delete protocol.parameters;
 		// Handle the confirmation of received data
-		console.log('Confirmed data:', receivedData);
+		console.log('Confirmed protocol data:', protocol);
+		const protocolResponse = await axios.post('https://black.irdop.org/db/insert/protocol', { protocol: protocol });
+
+		const updatedParameters = parameters.map((param) => ({
+			...param,
+			tat_expected: param.tat_expected ? `${param.tat_expected} ${param.tat_expected > 1 ? 'days' : 'day'}` : null,
+			protocol_id: protocolResponse.data.id,
+			protocol_code: receivedData.protocol_code,
+			matrix: param.matrix === 'Khác' ? customMatrix[param.parameter_name] : param.matrix,
+		}));
+
+		parameters = updatedParameters;
+		console.log('Confirmed parameter data:', parameters);
+		const parameterResponse = await axios.post('https://black.irdop.org/db/insert/parameter', {
+			parameters: parameters,
+		});
+
+		
+		const response = await axios.get('https://black.irdop.org/db/get/protocol');
+		const data = response.data;
+		setProtocols(data);
+
+		setContent(protocolResponse.data.id,instance);
+
 		setReceivedData(null);
 		setIsUploadBoxVisible(false);
 		setFiles([]);
+		setIsLoading(false);
+
+		if (protocolResponse.status === 200 && parameterResponse.status === 200) {
+			toast.success('Thêm mới phương pháp thành công');
+		} else {
+			toast.error('Thêm mới phương pháp thất bại, vui lòng kiểm tra lại');
+		}
 	};
 
 	const handleAccreditationChange = (index, value) => {
@@ -311,6 +408,63 @@ const ProtocolInfor = () => {
 			tat_expected: '',
 		};
 		setReceivedData({ ...receivedData, parameters: [...receivedData.parameters, newParameter] });
+	};
+
+	const handleDeleteParameter = (index) => {
+		const updatedParameters = receivedData.parameters.filter((_, paramIndex) => paramIndex !== index);
+		setReceivedData({ ...receivedData, parameters: updatedParameters });
+	};
+
+	const handleCustomMatrixChange = (parameterName, value) => {
+		setCustomMatrix({ ...customMatrix, [parameterName]: value });
+	};
+
+	const handleProtocolSourceChange = (index, value) => {
+		const updatedProtocols = protocols.map((protocol, i) => {
+			if (i === index) {
+				return { ...protocol, protocol_source: value };
+			}
+			return protocol;
+		});
+		setProtocols(updatedProtocols);
+	};
+
+	const handleNewProtocolChange = (field, value) => {
+		setNewProtocol({ ...newProtocol, [field]: value });
+	};
+
+	const handleSaveNewProtocol = async () => {
+		if (!newProtocol.protocol_name || !newProtocol.protocol_code || !newProtocol.protocol_description) {
+			toast.error('Các trường Tên phương pháp, Mã phương pháp và Mô tả là bắt buộc');
+			return;
+		}
+		try {
+			const response = await axios.post('https://black.irdop.org/db/insert/protocol', { protocol: newProtocol });
+			if (response.status === 200) {
+				toast.success('New protocol added successfully');
+				setProtocols([...protocols, newProtocol]);
+				setIsAddingNew(false);
+				setNewProtocol({
+					protocol_name: '',
+					protocol_code: '',
+					protocol_description: '',
+					protocol_content: '',
+					author_name: '',
+					publisher: '',
+					protocol_source: 'IRDOP',
+				});
+			} else {
+				toast.error('Failed to add new protocol');
+			}
+		} catch (error) {
+			console.error('Error adding new protocol:', error);
+			toast.error('Failed to add new protocol');
+		}
+	};
+
+	const handleAddNewProtocolClick = () => {
+		setIsUploadBoxVisible(false);
+		setIsAddingNew(true);
 	};
 
 	return (
@@ -411,7 +565,7 @@ const ProtocolInfor = () => {
 								<th className="py-2 text-center w-1/4">Nội dung</th>
 								{/* <th className="py-2 text-center w-24">File</th> */}
 								<th className="py-2 text-center w-40">Tác giả</th>
-								<th className="py-2 text-center w-40">Xuất bản</th>
+								<th className="py-2 text-center w-44">Xuất bản</th>
 								{/* <th className="py-2 text-center min-w-28">Created At</th> */}
 								{/* <th className="py-2 text-center min-w-28">Modified At</th> */}
 								<th className="py-2 text-center min-w-24">Thực hiện</th>
@@ -513,10 +667,10 @@ const ProtocolInfor = () => {
 									</td>
 									<td className="p-1 text-start">
 										{editingRow === index ? (
-											<input
-												type="text"
-												className="w-full border px-2 py-1 rounded bg-white"
+											<textarea
+												className="w-full border px-2 py-1 rounded bg-white max-h-20 overflow-y-auto"
 												value={protocol.protocol_description}
+												rows={3}
 												onChange={(e) => handleInputChange(index, 'protocol_description', e.target.value)}
 											/>
 										) : (
@@ -559,14 +713,7 @@ const ProtocolInfor = () => {
 											<div className="max-h-24 overflow-hidden hover:overflow-y-auto">{protocol.publisher}</div>
 										)}
 									</td>
-									{/* <td className="p-1 text-start">
-										<p>{formatDate(protocol.created_at)}</p>
-										<p className="text-primary text-sm font-medium">{protocol.created_by_uid}</p>
-									</td>
-									<td className="p-1 text-start">
-										<p>{formatDate(protocol.modified_at)}</p>
-										<p className="text-primary text-sm font-medium">{protocol.modified_by_uid}</p>
-									</td> */}
+
 									<td className="p-1 text-center">
 										{editingRow === index ? (
 											<>
@@ -614,17 +761,33 @@ const ProtocolInfor = () => {
 
 			{isLoading && (
 				<div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-20">
-					<div className="text-white text-lg">Loading...</div>
-					<button className="bg-red-500 text-white font-bold py-2 px-4 rounded ml-4" onClick={handleCancelUpload}>
-						Hủy
-					</button>
+					<div className="flex flex-col items-center justify-center min-h-screen">
+						<div className="flex space-x-1 pl-5 text-4xl font-bold text-teritary">
+							<span className="bounce">L</span>
+							<span className="bounce">o</span>
+							<span className="bounce">a</span>
+							<span className="bounce">d</span>
+							<span className="bounce">i</span>
+							<span className="bounce">n</span>
+							<span className="bounce">g</span>
+							<span className="bounce">.</span>
+							<span className="bounce">.</span>
+							<span className="bounce">.</span>
+						</div>
+						<button
+							className="bg-red-500 text-white font-bold py-2 px-4 mt-6 rounded ml-4"
+							onClick={handleCancelUpload}
+						>
+							Hủy
+						</button>
+					</div>
 				</div>
 			)}
 
 			{receivedData && (
-				<div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-20">
-					<div className="bg-white p-4 rounded-lg max-h-3/4 w-3/4 overflow-auto ">
-						<h2 className="text-xl font-bold mb-4">Received Data</h2>
+				<div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-20   ">
+					<div className="bg-white p-4 rounded-lg h-5/6 w-3/4 overflow-auto">
+						<h2 className="text-xl font-bold mb-4">PHƯƠNG PHÁP</h2>
 						<div className="mb-4">
 							<h3 className="text-lg font-semibold">Thông tin phương pháp</h3>
 							<table className="min-w-full bg-white">
@@ -838,4 +1001,3 @@ const ProtocolInfor = () => {
 };
 
 export default ProtocolInfor;
-
