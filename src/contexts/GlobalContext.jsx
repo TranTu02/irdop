@@ -1,6 +1,7 @@
-import React, { createContext, useState, useEffect } from 'react';
 import { bulkReceipts, listClients } from '../assets/testData';
 import axios from 'axios';
+import * as React from 'react';
+const { createContext, useState, useEffect } = React;
 
 export const GlobalContext = createContext();
 
@@ -23,14 +24,7 @@ export const GlobalProvider = ({ children }) => {
 	const [currentSort, setCurrentSort] = useState({});
 	const [technicians, setTechnicians] = useState([]);
 
-	const [currentKey, setCurrentKey] = useState([
-		{ key: 'alias', value: 'Mã KTV' },
-		{ key: 'parameter_name', value: 'Tên chỉ tiêu' },
-		{ key: 'matrix', value: 'Nền mẫu' },
-		{ key: 'accreditation', value: 'Chứng nhận' },
-		{ key: 'protocol_source', value: 'Nguồn' },
-		{ key: 'protocol_code', value: 'Mã phương pháp' },
-	]);
+	const [currentKey, setCurrentKey] = useState([]);
 	const [clients, setClients] = useState(listClients);
 	const [currentUser, setCurrentUser] = useState(sampleCurrentUser);
 

@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import * as React from 'react';
+const { useEffect, useRef } = React;
 
 const TinyMceInput = ({ value, onUpdate, onKey }) => {
 	const editorRef = useRef(null);

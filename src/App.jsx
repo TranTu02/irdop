@@ -1,4 +1,5 @@
-import React, { useContext } from 'react';
+import * as React from 'react';
+const { useContext } = React;
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import './App.css';
 import Header from './components/Header';

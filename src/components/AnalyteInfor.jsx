@@ -1,4 +1,5 @@
-import React, { useContext, useEffect, useState } from 'react';
+import * as React from 'react';
+const { useContext, useState, useEffect } = React;
 import FilterBar from './FilterBar';
 import Breadcrumb from './Breadcrumb';
 import { GlobalContext } from '../contexts/GlobalContext';

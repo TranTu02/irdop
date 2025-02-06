@@ -1,4 +1,5 @@
-import React, { useState, useContext, useEffect } from 'react';
+import * as React from 'react';
+const { useContext, useState, useEffect } = React;
 import TinyMceInput from './Input';
 import { GlobalContext } from '../contexts/GlobalContext';
 import { toast, ToastContainer } from 'react-toastify';

@@ -1,9 +1,18 @@
-import React, { useContext, useState, useEffect } from 'react';
+import * as React from 'react';
+const { useContext, useState, useEffect } = React;
 import { GlobalContext } from '../contexts/GlobalContext';
 
 const FilterBar = ({ source, setCurrentList, typeSearch }) => {
-	const { setCurrentSort, setCurrentFilter, setSearchWords, currentKey, searchProtocol, searchAnalyte, technicians } =
-		useContext(GlobalContext);
+	const {
+		setCurrentSort,
+		setCurrentFilter,
+		setSearchWords,
+		currentKey,
+		searchProtocol,
+		searchAnalyte,
+		technicians,
+		setCurrentKey,
+	} = useContext(GlobalContext);
 	const [searchTerm, setSearchTerm] = useState('');
 	const [currentList, setCurrentListState] = useState(source);
 	const [sorts, setSorts] = useState([]);
@@ -13,6 +22,25 @@ const FilterBar = ({ source, setCurrentList, typeSearch }) => {
 
 	useEffect(() => {
 		setCurrentListState(source);
+		switch (typeSearch) {
+			case 'protocol':
+				setCurrentKey([
+					{ key: 'protocol_name', value: 'Tên phương pháp' },
+					{ key: 'protocol_code', value: 'Mã phương pháp' },
+					{ key: 'protocol_description', value: 'Mô tả' },
+				]);
+				break;
+			case 'parameter':
+				setCurrentKey([
+					{ key: 'parameter_name', value: 'Tên chỉ tiêu' },
+					{ key: 'matrix', value: 'Nền mẫu' },
+					{ key: 'alias', value: 'Mã KTV' },
+					{ key: 'accreditation', value: 'Chứng nhận' },
+					{ key: 'protocol_source', value: 'Nguồn' },
+					{ key: 'protocol_code', value: 'Mã phương pháp' },
+				]);
+				break;
+		}
 	}, [source]);
 
 	const handleSearchChange = (e) => {
@@ -253,7 +281,7 @@ const FilterBar = ({ source, setCurrentList, typeSearch }) => {
 				{showFilterOptions && (
 					<div className="absolute top-full mt-2 p-2 border rounded bg-white shadow-lg z-10 w-full lg:w-auto">
 						{filters.map((filter, index) => (
-								<React.Fragment key={index}>
+							<React.Fragment key={index}>
 								{index > 0 && (
 									<div className="w-full lg:w-auto mb-2 lg:mb-0 flex">
 										<select
@@ -306,7 +334,7 @@ const FilterBar = ({ source, setCurrentList, typeSearch }) => {
 										Xóa
 									</button>
 								</div>
-								</React.Fragment>
+							</React.Fragment>
 						))}
 						<button onClick={handleAddFilter} className="p-2 border rounded bg-green-500 text-white w-full mb-2">
 							Thêm điều kiện

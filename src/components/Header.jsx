@@ -1,4 +1,5 @@
-import React, { useContext } from 'react';
+import * as React from 'react';
+const { useContext } = React;
 import { Link } from 'react-router-dom';
 import logo from '../assets/IRDOP-LOGO .png';
 import { GlobalContext } from '../contexts/GlobalContext';
@@ -15,7 +16,10 @@ const Header = () => {
 					<p className="hover:text-primary cursor-pointer md:text-md ml-4  mt-0.5 text-md text-teritary font-medium">
 						Bán hàng
 					</p>
-					<Link to="/library" className="hover:text-primary cursor-pointer md:text-md ml-4  mt-0.5 text-md text-teritary font-medium">
+					<Link
+						to="/library"
+						className="hover:text-primary cursor-pointer md:text-md ml-4  mt-0.5 text-md text-teritary font-medium"
+					>
 						Thư viện
 					</Link>
 					<p className="  text-slate-600 cursor-default md:text-lg ml-4 text-md font-medium">{'Account'}</p>

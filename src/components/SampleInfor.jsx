@@ -1,4 +1,5 @@
-import React, { useContext, useEffect, useState } from 'react';
+import * as React from 'react';
+const { useContext, useState, useEffect } = React;
 import { useParams } from 'react-router-dom';
 import { GlobalContext } from '../contexts/GlobalContext';
 import Breadcrumb from './Breadcrumb';

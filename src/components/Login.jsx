@@ -1,4 +1,5 @@
-import React, { useContext, useState } from 'react';
+import * as React from 'react';
+const { useContext, useState } = React;
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
@@ -7,7 +8,7 @@ import Cookies from 'js-cookie';
 import { GlobalContext } from '../contexts/GlobalContext';
 
 const Login = () => {
-    const { setCurrentUser } = useContext(GlobalContext);
+	const { setCurrentUser } = useContext(GlobalContext);
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
 	const navigate = useNavigate();
@@ -17,10 +18,10 @@ const Login = () => {
 			const response = await axios.post('http://127.0.0.1:1880/login', { email, password });
 			if (response.status === 200) {
 				toast.success('Đăng nhập thành công');
-                const auth = response.data;
-                const jsonString = atob(auth);
-                const authObject = JSON.parse(jsonString);
-                setCurrentUser(authObject);
+				const auth = response.data;
+				const jsonString = atob(auth);
+				const authObject = JSON.parse(jsonString);
+				setCurrentUser(authObject);
 				Cookies.set('auth', auth);
 				navigate('/');
 			} else {
@@ -72,10 +73,7 @@ const Login = () => {
 					/>
 				</div>
 				<div className="flex items-center justify-center">
-					<button
-						className="bg-blue-500 text-white px-4 py-2 rounded font-bold"
-						onClick={handleLogin}
-					>
+					<button className="bg-blue-500 text-white px-4 py-2 rounded font-bold" onClick={handleLogin}>
 						Đăng nhập
 					</button>
 				</div>

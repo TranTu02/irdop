@@ -1,11 +1,11 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import polyfillNode from 'rollup-plugin-polyfill-node';
 
 export default defineConfig({
-	plugins: [react(), polyfillNode()],
+	plugins: [react()],
 	assetsInclude: ['**/*.png', '**/*.jpg', '**/*.svg'], // file ảnh
 	define: {
+		__WS_TOKEN__: JSON.stringify('abc'),
 		global: 'globalThis', // Định nghĩa `global` thành `globalThis`
 	},
 	build: {
@@ -15,6 +15,10 @@ export default defineConfig({
 					tinymce: ['tinymce/tinymce'],
 				},
 			},
+		},
+		esbuild: {
+			jsxFactory: 'React.createElement', // Chỉ định JSX factory cho React
+			jsxFragment: 'React.Fragment', // Chỉ định JSX Fragment cho React
 		},
 	},
 });
