@@ -20,7 +20,6 @@ const ProtocolInfor = () => {
 	const [isLoading, setIsLoading] = useState(false);
 	const [receivedData, setReceivedData] = useState(null);
 	const [editingRow, setEditingRow] = useState(null);
-	const [customMatrix, setCustomMatrix] = useState({});
 	const [currentPage, setCurrentPage] = useState(1);
 	const [instance, setInstance] = useState(null);
 	const [isAddingNew, setIsAddingNew] = useState(false);
@@ -32,6 +31,7 @@ const ProtocolInfor = () => {
 		protocol_content: '',
 		author_name: '',
 		publisher: '',
+		parameters: [],
 	});
 	const [technicianDropdownVisible, setTechnicianDropdownVisible] = useState(null);
 	const protocolsPerPage = 20;
@@ -49,15 +49,6 @@ const ProtocolInfor = () => {
 
 	const totalPages = Math.ceil(protocols.length / protocolsPerPage);
 	const paginatedProtocols = protocols.slice((currentPage - 1) * protocolsPerPage, currentPage * protocolsPerPage);
-
-	// const fetchTechnicians = async () => {
-	// 	try {
-	// 		const response = await axios.get('https://pink.irdop.org/db/get/techinician');
-	// 		setTechnicians(response.data);
-	// 	} catch (error) {
-	// 		console.error('Error fetching technicians:', error);
-	// 	}
-	// };
 
 	/** Note: Page */
 	const renderPageNumbers = () => {
@@ -112,8 +103,10 @@ const ProtocolInfor = () => {
 	}, [setCurrentTitlePage]);
 
 	useEffect(() => {
-		fetchProtocols();
-	}, []);
+		if (technicians.length > 0) {
+			fetchProtocols();
+		}
+	}, [technicians]);
 
 	const fetchProtocols = async () => {
 		try {
@@ -124,7 +117,6 @@ const ProtocolInfor = () => {
 			}));
 			console.log(data);
 			setProtocols(data);
-
 			setSource(data);
 		} catch (error) {
 			console.error('Error fetching protocols:', error);
@@ -137,15 +129,9 @@ const ProtocolInfor = () => {
 	};
 
 	/** Note: Handle */
-	const handleEditClick = (id) => {
-		setEditingRow(id);
-		console.log(protocols.find((protocol) => protocol.id === id));
-	};
-
 	const handleSaveClick = async (id) => {
 		const updatedProtocol = protocols.find((protocol) => protocol.id === id);
 		const response = await axios.post('https://black.irdop.org/db/update/protocol', { protocol: updatedProtocol });
-		console.log(response);
 		setEditingRow(null);
 		if (response.status === 200) {
 			toast.success('Protocol updated successfully');
@@ -158,11 +144,11 @@ const ProtocolInfor = () => {
 	const handleSaveParameterClick = async (protocolId, paramIndex) => {
 		const updatedProtocol = protocols.find((protocol) => protocol.id === protocolId);
 		const updatedParameter = updatedProtocol.parameters[paramIndex];
-		console.log(updatedParameter);
-		if (updatedParameter.tat_expected === null) {
+
+		if (Number.isNaN(parseInt(updatedParameter.tat_expected))) {
 			delete updatedParameter.tat_expected;
 		} else {
-			const days = parseInt(updatedParameter?.tat_expected.split(' ')[0]);
+			const days = parseInt(updatedParameter?.tat_expected?.split(' ')[0]);
 			updatedParameter.tat_expected = `${days} ${days > 1 ? 'days' : 'day'}`;
 		}
 		const response = updatedParameter.id
@@ -176,7 +162,6 @@ const ProtocolInfor = () => {
 	};
 
 	const handleParameterInputChange = (protocolId, paramIndex, field, value) => {
-		console.log(protocolId, paramIndex, field, value);
 		const updatedProtocols = protocols.map((protocol) => {
 			if (protocol.id === protocolId) {
 				const updatedParameters = protocol.parameters.map((param, j) => {
@@ -202,7 +187,8 @@ const ProtocolInfor = () => {
 		const confirmed = window.confirm(`Bạn chắc chắn muốn xóa phương pháp: ${protocol.protocol_name}?`);
 		if (confirmed) {
 			const response = await axios.post('https://black.irdop.org/db/delete/protocol', { id: protocol.id });
-			if (response.status === 200 && response.data) {
+			console.log(response);
+			if (response.statusCode === 200 && response.data) {
 				toast.success('Protocol deleted successfully');
 				setProtocols(protocols.filter((protocol) => protocol.id !== id));
 			} else {
@@ -219,14 +205,6 @@ const ProtocolInfor = () => {
 			return protocol;
 		});
 		setProtocols(updatedProtocols);
-	};
-
-	const handleCheckboxChange = (protocol_name) => {
-		setSelectedProtocols((prevSelected) =>
-			prevSelected.includes(protocol_name)
-				? prevSelected.filter((name) => name !== protocol_name)
-				: [...prevSelected, protocol_name],
-		);
 	};
 
 	const handleRoleChange = (role) => {
@@ -274,8 +252,6 @@ const ProtocolInfor = () => {
 		setFiles((prevFiles) => prevFiles.filter((file) => file.name !== fileName));
 	};
 
-	const bulkUpload = async () => {};
-
 	const handleConfirmUpload = async () => {
 		// Kiểm tra nếu không có file nào được chọn
 		if (!files || files.length === 0) {
@@ -311,8 +287,6 @@ const ProtocolInfor = () => {
 				};
 				lisMes.push({ media: media });
 			}
-
-			console.log('Media:', lisMes);
 
 			// const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -354,7 +328,6 @@ const ProtocolInfor = () => {
 				throw new Error('Invalid response format');
 			}
 
-			console.log(response.data);
 			setInstance(response.data.file_id);
 
 			// Bổ sung thuộc tính accreditation và tat_expected cho mỗi parameter
@@ -367,7 +340,6 @@ const ProtocolInfor = () => {
 				})),
 			};
 
-			console.log('Upload result:', updatedData);
 			setReceivedData(updatedData);
 		} catch (error) {
 			console.error('Error during upload:', error.message);
@@ -392,7 +364,6 @@ const ProtocolInfor = () => {
 		let parameters = receivedData.parameters;
 		delete protocol.parameters;
 		// Handle the confirmation of received data
-		console.log('Confirmed protocol data:', protocol);
 		const protocolResponse = await axios.post('https://black.irdop.org/db/insert/protocol', { protocol: protocol });
 
 		const updatedParameters = parameters.map((param) => ({
@@ -404,7 +375,6 @@ const ProtocolInfor = () => {
 		}));
 
 		parameters = updatedParameters;
-		console.log('Confirmed parameter data:', parameters);
 		const parameterResponse = await axios.post('https://black.irdop.org/db/insert/parameter', {
 			parameters: parameters,
 		});
@@ -474,36 +444,6 @@ const ProtocolInfor = () => {
 		setReceivedData({ ...receivedData, parameters: [...receivedData.parameters, newParameter] });
 	};
 
-	const handleDeleteParameter = async (index) => {
-		const param = receivedData.parameters[index];
-		if (param.id) {
-			const confirmed = window.confirm(`Bạn chắc chắn muốn xóa chỉ tiêu: ${param.parameter_name}?`);
-			if (confirmed) {
-				const response = await axios.post('https://black.irdop.org/db/delete/analyte', { id: param.id });
-				if (response.status === 200 && response.data) {
-					toast.success('Parameter deleted successfully');
-					const updatedParameters = receivedData.parameters.filter((_, paramIndex) => paramIndex !== index);
-					setReceivedData({ ...receivedData, parameters: updatedParameters });
-				} else {
-					toast.error('Parameter deletion failed');
-				}
-			}
-		} else {
-			const updatedParameters = receivedData.parameters.filter((_, paramIndex) => paramIndex !== index);
-			setReceivedData({ ...receivedData, parameters: updatedParameters });
-		}
-	};
-
-	const handleProtocolSourceChange = (index, value) => {
-		const updatedProtocols = protocols.map((protocol, i) => {
-			if (i === index) {
-				return { ...protocol, protocol_source: value };
-			}
-			return protocol;
-		});
-		setProtocols(updatedProtocols);
-	};
-
 	const handleNewProtocolChange = (field, value) => {
 		setNewProtocol({ ...newProtocol, [field]: value });
 	};
@@ -515,7 +455,7 @@ const ProtocolInfor = () => {
 		}
 		try {
 			const response = await axios.post('https://black.irdop.org/db/insert/protocol', { protocol: newProtocol });
-			if (response.status === 200) {
+			if (response.statusCode === 200) {
 				toast.success('New protocol added successfully');
 				setProtocols([...protocols, newProtocol]);
 				setIsAddingNew(false);
@@ -526,7 +466,7 @@ const ProtocolInfor = () => {
 					protocol_content: '',
 					author_name: '',
 					publisher: '',
-					protocol_source: 'IRDOP',
+					parameters: [],
 				});
 				fetchProtocols();
 			} else {
@@ -540,7 +480,7 @@ const ProtocolInfor = () => {
 
 	const handleAddNewProtocolClick = () => {
 		setIsUploadBoxVisible(false);
-		setIsAddingNew(true);
+		setReceivedData(newProtocol);
 	};
 
 	const handleAddParameterClick = (protocolId) => {
@@ -576,7 +516,7 @@ const ProtocolInfor = () => {
 		const confirmed = window.confirm(`Bạn chắc chắn muốn xóa chỉ tiêu: ${parameter.parameter_name}?`);
 		if (confirmed) {
 			const response = await axios.post('https://black.irdop.org/db/delete/analyte', { id: parameter.id });
-			if (response.status === 200 && response.data) {
+			if (response.statusCode === 200 && response.data) {
 				toast.success('Parameter deleted successfully');
 				const updatedProtocols = protocols.map((protocol) => {
 					if (protocol.id === protocolId) {
@@ -586,14 +526,13 @@ const ProtocolInfor = () => {
 					return protocol;
 				});
 				setProtocols(updatedProtocols);
-			} else {
+			} else if (response.statusCode === 400) {
 				toast.error('Parameter deletion failed');
 			}
 		}
 	};
 
 	const handleRowDoubleClick = (protocol) => {
-		console.log(protocol);
 		setReceivedData(protocol);
 	};
 
@@ -617,7 +556,6 @@ const ProtocolInfor = () => {
 				: await axios.post('https://black.irdop.org/db/insert/protocol', { protocol: protocol });
 
 			const updatedParameters = parameters.map((param) => {
-				console.log(param);
 				if (Number.isNaN(parseInt(param.tat_expected))) {
 					delete param.tat_expected;
 				} else {
@@ -626,7 +564,7 @@ const ProtocolInfor = () => {
 				}
 				return {
 					...param,
-					protocol_id: protocol.id,
+					protocol_id: protocol.id || protocolResponse.data.id,
 					protocol_code: protocol.protocol_code,
 					matrix: param.matrix,
 				};
@@ -650,7 +588,7 @@ const ProtocolInfor = () => {
 			setFiles([]);
 			setIsLoading(false);
 
-			if (protocolResponse.status === 200 && parameterResponses.every((res) => res.status === 200)) {
+			if (protocolResponse.statusCode === 200 && parameterResponses.every((res) => res.statusCode === 200)) {
 				toast.success('Cập nhật phương pháp thành công');
 			} else {
 				toast.error('Cập nhật phương pháp thất bại, vui lòng kiểm tra lại');
@@ -663,7 +601,7 @@ const ProtocolInfor = () => {
 				const confirmed = window.confirm(`Bạn chắc chắn muốn xóa chỉ tiêu: ${param.parameter_name}?`);
 				if (confirmed) {
 					const response = await axios.post('https://black.irdop.org/db/delete/analyte', { id: param.id });
-					if (response.status === 200 && response.data) {
+					if (response.statusCode === 200 && response.data) {
 						toast.success('Parameter deleted successfully');
 						const updatedParameters = receivedData.parameters.filter((_, paramIndex) => paramIndex !== index);
 						setReceivedData({ ...receivedData, parameters: updatedParameters });
@@ -780,7 +718,7 @@ const ProtocolInfor = () => {
 							<tr>
 								<th className="py-2 text-start pl-3 w-1/3">Phép thử / chỉ tiêu</th>
 								<th className="py-2 text-start pl-3 w-1/4">Nền mẫu</th>
-								<th className="py-2 text-center min-w-32">Người thực hiện</th>
+								<th className="py-2 text-center min-w-44">Người thực hiện</th>
 								<th className="py-2 text-center min-w-16">Đơn vị</th>
 								<th className="py-2 text-center min-w-20">Dự kiến</th>
 								<th className="py-2 text-center min-w-28">Chứng nhận</th>
@@ -821,7 +759,7 @@ const ProtocolInfor = () => {
 										<td className="p-1 text-start">
 											{isViewMode && !isEditing ? (
 												<textarea
-													className="w-full resize-none px-2 py-1 rounded bg-white overflow-hidden hover:overflow-y-auto border-none"
+													className="w-full resize-none px-2 py-1 rounded bg-white overflow-hidden border-none"
 													value={technician(param) || ''}
 													rows={2}
 													disabled

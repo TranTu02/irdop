@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect } from 'react';
 import { GlobalContext } from '../contexts/GlobalContext';
 
 const FilterBar = ({ source, setCurrentList, typeSearch }) => {
-	const { setCurrentSort, setCurrentFilter, setSearchWords, currentKey, searchProtocol, searchAnalyte,technicians } =
+	const { setCurrentSort, setCurrentFilter, setSearchWords, currentKey, searchProtocol, searchAnalyte, technicians } =
 		useContext(GlobalContext);
 	const [searchTerm, setSearchTerm] = useState('');
 	const [currentList, setCurrentListState] = useState(source);
@@ -94,6 +94,11 @@ const FilterBar = ({ source, setCurrentList, typeSearch }) => {
 		validFilters.forEach((filter, index) => {
 			if (filter.logic === 'AND' || index === 0) {
 				filteredList = filteredList.filter((item) => {
+					if (filter.key === 'alias') {
+						const technician = technicians.find((tech) => tech.identity_uid === item.technician_uid);
+						const alias = technician ? technician.alias : '';
+						return alias.includes(filter.value);
+					}
 					switch (filter.condition) {
 						case 'include':
 							return item[filter.key].includes(filter.value);
@@ -115,6 +120,11 @@ const FilterBar = ({ source, setCurrentList, typeSearch }) => {
 				});
 			} else if (filter.logic === 'OR') {
 				const additionalList = currentList.filter((item) => {
+					if (filter.key === 'alias') {
+						const technician = technicians.find((tech) => tech.identity_uid === item.technician_uid);
+						const alias = technician ? technician.alias : '';
+						return alias.includes(filter.value);
+					}
 					switch (filter.condition) {
 						case 'include':
 							return item[filter.key].includes(filter.value);
@@ -243,7 +253,7 @@ const FilterBar = ({ source, setCurrentList, typeSearch }) => {
 				{showFilterOptions && (
 					<div className="absolute top-full mt-2 p-2 border rounded bg-white shadow-lg z-10 w-full lg:w-auto">
 						{filters.map((filter, index) => (
-							<>
+								<React.Fragment key={index}>
 								{index > 0 && (
 									<div className="w-full lg:w-auto mb-2 lg:mb-0 flex">
 										<select
@@ -296,7 +306,7 @@ const FilterBar = ({ source, setCurrentList, typeSearch }) => {
 										Xóa
 									</button>
 								</div>
-							</>
+								</React.Fragment>
 						))}
 						<button onClick={handleAddFilter} className="p-2 border rounded bg-green-500 text-white w-full mb-2">
 							Thêm điều kiện

@@ -9,7 +9,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 const AnalyteInfor = () => {
-	const { setCurrentTitlePage, currentUser } = useContext(GlobalContext);
+	const { setCurrentTitlePage, currentUser, technicians } = useContext(GlobalContext);
 	const [analytes, setAnalytes] = useState([]);
 	const [currentRole, setCurrentRole] = useState(currentUser.role[0]);
 	const [isRoleDropdownVisible, setIsRoleDropdownVisible] = useState(false);
@@ -35,7 +35,6 @@ const AnalyteInfor = () => {
 	const [currentPage, setCurrentPage] = useState(1);
 	const [protocolPage, setProtocolPage] = useState(1);
 	const [listProtocol, setListProtocol] = useState([]);
-	const [technicians, setTechnicians] = useState([]);
 	const [technicianDropdownVisible, setTechnicianDropdownVisible] = useState(null);
 	const protocolsPerPage = 5;
 	const analytesPerPage = 20;
@@ -51,21 +50,6 @@ const AnalyteInfor = () => {
 		}
 	}, [technicians]);
 
-	useEffect(() => {
-		if (technicians.length === 0) {
-			fetchTechnicians();
-		}
-	}, []);
-
-	const fetchTechnicians = async () => {
-		try {
-			const response = await axios.get('https://pink.irdop.org/db/get/techinician');
-			setTechnicians(response.data);
-		} catch (error) {
-			console.error('Error fetching technicians:', error);
-		}
-	};
-
 	const fetchAnalytes = async () => {
 		try {
 			const response = await axios.get('https://black.irdop.org/db/get/analyte');
@@ -75,8 +59,6 @@ const AnalyteInfor = () => {
 					? `${analyte.tat_expected.days} ${analyte.tat_expected.days > 1 ? 'days' : 'day'}`
 					: '',
 			}));
-			console.log(data);
-
 			setAnalytes(data);
 			setOriginalAnalytes(data);
 		} catch (error) {
