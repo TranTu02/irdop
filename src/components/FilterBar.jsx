@@ -2,7 +2,8 @@ import React, { useContext, useState, useEffect } from 'react';
 import { GlobalContext } from '../contexts/GlobalContext';
 
 const FilterBar = ({ source, setCurrentList, typeSearch }) => {
-	const { setCurrentSort, setCurrentFilter, setSearchWords, currentKey, searchProtocol, searchAnalyte } = useContext(GlobalContext);
+	const { setCurrentSort, setCurrentFilter, setSearchWords, currentKey, searchProtocol, searchAnalyte,technicians } =
+		useContext(GlobalContext);
 	const [searchTerm, setSearchTerm] = useState('');
 	const [currentList, setCurrentListState] = useState(source);
 	const [sorts, setSorts] = useState([]);
@@ -19,7 +20,7 @@ const FilterBar = ({ source, setCurrentList, typeSearch }) => {
 		if (typeSearch === 'protocol') {
 			setCurrentList(searchProtocol(e.target.value, currentList));
 		} else if (typeSearch === 'parameter') {
-			setCurrentList(searchAnalyte(e.target.value,currentList));
+			setCurrentList(searchAnalyte(e.target.value, currentList));
 		}
 	};
 
@@ -242,58 +243,60 @@ const FilterBar = ({ source, setCurrentList, typeSearch }) => {
 				{showFilterOptions && (
 					<div className="absolute top-full mt-2 p-2 border rounded bg-white shadow-lg z-10 w-full lg:w-auto">
 						{filters.map((filter, index) => (
-							<div key={index} className="flex flex-col lg:flex-row items-center mb-2">
+							<>
 								{index > 0 && (
-									<div className="w-full lg:w-auto mb-2 lg:mb-0">
+									<div className="w-full lg:w-auto mb-2 lg:mb-0 flex">
 										<select
 											value={filter.logic}
 											onChange={(e) => handleFilterLogicChange(index, e)}
-											className="p-2 border border-gray-400 rounded-lg bg-white w-fit"
+											className="p-2 border rounded-lg bg-white w-fit"
 										>
 											<option value="AND">AND</option>
 											<option value="OR">OR</option>
 										</select>
 									</div>
 								)}
-								<label className="lg:mr-2 mb-1 lg:mb-0">Thuộc tính:</label>
-								<select
-									value={filter.key}
-									onChange={(e) => handleFilterKeyChange(index, e)}
-									className="p-2 border border-gray-400 rounded-lg bg-white lg:mr-2 min-w-60 lg:min-w-40 mb-2 lg:mb-0"
-								>
-									{currentKey.map((key) => (
-										<option key={key.key} value={key.key}>
-											{key.value}
-										</option>
-									))}
-								</select>
-								<label className="lg:mr-2 mb-1 lg:mb-0">Điều kiện:</label>
-								<select
-									value={filter.condition}
-									onChange={(e) => handleFilterConditionChange(index, e)}
-									className="p-2 border border-gray-400 rounded-lg bg-white lg:mr-2 mb-2 lg:mb-0"
-								>
-									{filterConditions.map((condition) => (
-										<option key={condition.key} value={condition.key}>
-											{condition.value}
-										</option>
-									))}
-								</select>
-								<label className="lg:mr-2 mb-1 lg:mb-0">Giá trị:</label>
-								<input
-									type="text"
-									value={filter.value}
-									onChange={(e) => handleFilterValueChange(index, e)}
-									className="p-2 border border-gray-400 rounded-lg bg-white mb-2 lg:mb-0 w-60 lg:w-auto"
-									placeholder="Giá trị lọc"
-								/>
-								<button
-									onClick={() => handleRemoveFilter(index)}
-									className="p-2 border rounded bg-red-500 text-white ml-2"
-								>
-									Xóa
-								</button>
-							</div>
+								<div key={index} className="flex flex-col lg:flex-row items-center my-1">
+									<label className="lg:mr-2 mb-1 lg:mb-0">Thuộc tính:</label>
+									<select
+										value={filter.key}
+										onChange={(e) => handleFilterKeyChange(index, e)}
+										className="p-2 border border-gray-400 rounded-lg bg-white lg:mr-2 min-w-60 lg:min-w-40 mb-2 lg:mb-0"
+									>
+										{currentKey.map((key) => (
+											<option key={key.key} value={key.key}>
+												{key.value}
+											</option>
+										))}
+									</select>
+									<label className="lg:mr-2 mb-1 lg:mb-0">Điều kiện:</label>
+									<select
+										value={filter.condition}
+										onChange={(e) => handleFilterConditionChange(index, e)}
+										className="p-2 border border-gray-400 rounded-lg bg-white lg:mr-2 mb-2 lg:mb-0"
+									>
+										{filterConditions.map((condition) => (
+											<option key={condition.key} value={condition.key}>
+												{condition.value}
+											</option>
+										))}
+									</select>
+									<label className="lg:mr-2 mb-1 lg:mb-0">Giá trị:</label>
+									<input
+										type="text"
+										value={filter.value}
+										onChange={(e) => handleFilterValueChange(index, e)}
+										className="p-2 border border-gray-400 rounded-lg bg-white mb-2 lg:mb-0 w-60 lg:w-auto"
+										placeholder="Giá trị lọc"
+									/>
+									<button
+										onClick={() => handleRemoveFilter(index)}
+										className="p-2 border rounded bg-red-500 text-white ml-2"
+									>
+										Xóa
+									</button>
+								</div>
+							</>
 						))}
 						<button onClick={handleAddFilter} className="p-2 border rounded bg-green-500 text-white w-full mb-2">
 							Thêm điều kiện

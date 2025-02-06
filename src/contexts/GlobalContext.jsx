@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect } from 'react';
 import { bulkReceipts, listClients } from '../assets/testData';
+import axios from 'axios';
 
 export const GlobalContext = createContext();
 
@@ -20,90 +21,132 @@ export const GlobalProvider = ({ children }) => {
 	const [currentBulkReceipt, setCurrentBulkReceipt] = useState(sampleCurrentBulkReceipt);
 	const [currentFilter, setCurrentFilter] = useState([]);
 	const [currentSort, setCurrentSort] = useState({});
+	const [technicians, setTechnicians] = useState([]);
+
 	const [currentKey, setCurrentKey] = useState([
-		{ key: 'receipt_uid', value: 'Mã tiếp nhận' },
-		{ key: 'sample_uid', value: 'Mã mẫu' },
-		{ key: 'analyte_name', value: 'Chỉ tiêu' },
-		{ key: 'protocol', value: 'Phương pháp' },
+		{ key: 'alias', value: 'Mã KTV' },
+		{ key: 'parameter_name', value: 'Tên chỉ tiêu' },
+		{ key: 'matrix', value: 'Nền mẫu' },
+		{ key: 'accreditation', value: 'Chứng nhận' },
+		{ key: 'protocol_source', value: 'Nguồn' },
+		{ key: 'protocol_code', value: 'Mã phương pháp' },
 	]);
 	const [clients, setClients] = useState(listClients);
 	const [currentUser, setCurrentUser] = useState(sampleCurrentUser);
 
+	const normalizeString = (str) => {
+		const map = {
+			đ: 'd',
+			Đ: 'D',
+			ê: 'e',
+			Ê: 'E',
+			ơ: 'o',
+			Ơ: 'O',
+			ô: 'o',
+			Ô: 'O',
+			ă: 'a',
+			Ă: 'A',
+			â: 'a',
+			Â: 'A',
+		};
+		return str
+			.normalize('NFD')
+			.replace(/[\u0300-\u036f]/g, '')
+			.replace(/[đĐêÊơƠôÔăĂâÂ]/g, (char) => map[char])
+			.toLowerCase();
+	};
+
 	const searchClients = (query) => {
+		const normalizedQuery = normalizeString(query);
 		return clients.filter(
 			(client) =>
-				client.client_uid.includes(query) ||
-				client.client_name.includes(query) ||
-				client.client_address.includes(query),
+				normalizeString(client.client_uid).includes(normalizedQuery) ||
+				normalizeString(client.client_name).includes(normalizedQuery) ||
+				normalizeString(client.client_address).includes(normalizedQuery),
 		);
 	};
 
-	const searchProtocol = (query,listProtocols) => {
-		const lowerCaseQuery = query.toLowerCase();
+	const searchProtocol = (query, listProtocols) => {
+		const normalizedQuery = normalizeString(query);
+
 		return listProtocols.filter(
 			(protocol) =>
-				protocol.protocol_name.toLowerCase().includes(lowerCaseQuery) ||
-				protocol.protocol_code.toLowerCase().includes(lowerCaseQuery) 
+				normalizeString(protocol.protocol_name).includes(normalizedQuery) ||
+				normalizeString(protocol.protocol_code).includes(normalizedQuery) ||
+				protocol.parameters.some((parameter) => normalizeString(parameter.matrix).includes(normalizedQuery)),
 		);
 	};
 
 	const searchAnalyte = (query, listAnalytes) => {
-		const lowerCaseQuery = query.toLowerCase();
+		const normalizedQuery = normalizeString(query);
 		return listAnalytes.filter(
 			(analyte) =>
-				analyte.parameter_uid.toLowerCase().includes(lowerCaseQuery) ||
-				analyte.parameter_name.toLowerCase().includes(lowerCaseQuery) ||
-				analyte.protocol_code.toLowerCase().includes(lowerCaseQuery) ||
-				analyte.matrix.toLowerCase().includes(lowerCaseQuery)
+				normalizeString(analyte.parameter_uid).includes(normalizedQuery) ||
+				normalizeString(analyte.parameter_name).includes(normalizedQuery) ||
+				normalizeString(analyte.protocol_code).includes(normalizedQuery) ||
+				normalizeString(analyte.matrix).includes(normalizedQuery),
 		);
 	};
+	const fetchTechnicians = async () => {
+		try {
+			const response = await axios.get('https://pink.irdop.org/db/get/techinician');
+			setTechnicians(response.data);
+			console.log('Technicians:', response.data);
+		} catch (error) {
+			console.error('Error fetching technicians:', error);
+		}
+	};
+
+	// useEffect(() => {
+	// 	if (currentReceipt && currentReceipt.samples) {
+	// 		let analytes = currentReceipt.samples.flatMap((sample) =>
+	// 			sample.sample_analytes.map((order) => ({
+	// 				...order,
+	// 				sample_receipt_id: sample.sample_receipt_id,
+	// 				sample_uid: sample.sample_uid,
+	// 			})),
+	// 		);
+
+	// 		// Apply filters
+	// 		currentFilter.forEach((filter) => {
+	// 			analytes = analytes.filter((analyte) => {
+	// 				switch (filter.condition) {
+	// 					case 'include':
+	// 						return analyte[filter.key].includes(filter.value);
+	// 					case 'not in':
+	// 						return !analyte[filter.key].includes(filter.value);
+	// 					case '>':
+	// 						return analyte[filter.key] > filter.value;
+	// 					case '>=':
+	// 						return analyte[filter.key] >= filter.value;
+	// 					case '<':
+	// 						return analyte[filter.key] < filter.value;
+	// 					case '<=':
+	// 						return analyte[filter.key] <= filter.value;
+	// 					case '===':
+	// 						return analyte[filter.key] === filter.value;
+	// 					default:
+	// 						return true;
+	// 				}
+	// 			});
+	// 		});
+
+	// 		// Apply sorting
+	// 		if (currentSort.key) {
+	// 			analytes.sort((a, b) => {
+	// 				if (a[currentSort.key] < b[currentSort.key]) return currentSort.order === 'asc' ? -1 : 1;
+	// 				if (a[currentSort.key] > b[currentSort.key]) return currentSort.order === 'asc' ? 1 : -1;
+	// 				return 0;
+	// 			});
+	// 		}
+
+	// 		setListAnalytes(analytes);
+	// 	}
+	// }, [currentReceipt, currentFilter, currentSort]);
 
 	useEffect(() => {
-		if (currentReceipt && currentReceipt.samples) {
-			let analytes = currentReceipt.samples.flatMap((sample) =>
-				sample.sample_analytes.map((order) => ({
-					...order,
-					sample_receipt_id: sample.sample_receipt_id,
-					sample_uid: sample.sample_uid,
-				})),
-			);
-
-			// Apply filters
-			currentFilter.forEach((filter) => {
-				analytes = analytes.filter((analyte) => {
-					switch (filter.condition) {
-						case 'include':
-							return analyte[filter.key].includes(filter.value);
-						case 'not in':
-							return !analyte[filter.key].includes(filter.value);
-						case '>':
-							return analyte[filter.key] > filter.value;
-						case '>=':
-							return analyte[filter.key] >= filter.value;
-						case '<':
-							return analyte[filter.key] < filter.value;
-						case '<=':
-							return analyte[filter.key] <= filter.value;
-						case '===':
-							return analyte[filter.key] === filter.value;
-						default:
-							return true;
-					}
-				});
-			});
-
-			// Apply sorting
-			if (currentSort.key) {
-				analytes.sort((a, b) => {
-					if (a[currentSort.key] < b[currentSort.key]) return currentSort.order === 'asc' ? -1 : 1;
-					if (a[currentSort.key] > b[currentSort.key]) return currentSort.order === 'asc' ? 1 : -1;
-					return 0;
-				});
-			}
-
-			setListAnalytes(analytes);
-		}
-	}, [currentReceipt, currentFilter, currentSort]);
+		fetchTechnicians();
+	}, []);
 
 	const setCurrentReceipt = (receipt_uid) => {
 		// Find the receipt with the given receipt_uid
@@ -178,6 +221,7 @@ export const GlobalProvider = ({ children }) => {
 				setCurrentUser,
 				searchProtocol,
 				searchAnalyte,
+				technicians,
 			}}
 		>
 			{children}
